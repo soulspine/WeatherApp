@@ -1,0 +1,6 @@
+.vs/
+WeatherApp/
+x64/
+imgui.ini
+imgui_log.txt
+*.user
