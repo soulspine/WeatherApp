@@ -42,6 +42,12 @@
     <ClInclude Include="src\WeatherApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Structs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\json\json.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="vendor\imgui\imgui.cpp">
@@ -75,5 +81,6 @@
   <ItemGroup>
     <None Include="README.md" />
     <None Include=".gitignore" />
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

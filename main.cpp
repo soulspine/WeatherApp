@@ -1,10 +1,11 @@
-// Dear ImGui: standalone example application for DirectX 9
+﻿// Dear ImGui: standalone example application for DirectX 9
 
 // Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq
 // - Getting Started      https://dearimgui.com/getting-started
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
+
 
 #include "vendor/imgui/imgui.h"
 #include "vendor/imgui/imgui_impl_dx9.h"
@@ -33,7 +34,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 //int APIENTRY WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE hInstPrev, _In_ PSTR cmdline, _In_ int cmdshow)
 int main()
 {
-    WeatherApp weatherApp;
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    WeatherApp::App weatherApp;
 
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
