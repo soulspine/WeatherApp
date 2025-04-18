@@ -38,12 +38,16 @@ namespace WeatherApp {
 
 		bool getDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount);
 
+		bool getDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount);
+		bool getDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount);
+
 		cpr::Response _requestGet(string endpoint, bool ignoreBaseUrl = false);
 		string _wcharToString(const wchar_t* wchar);
 		vector<string> _removeVectorDuplicates(const vector<string>& input);
 		string _getJsonString(const json& obj, const string& key, const string& defaultValue = "null");
 		void _showErrorBox(LPCWSTR message);
-		bool _sensorIteratorHelper(const INT64& sensorId, json& out, string endpoint);
+		bool _sensorIteratorHelper(const INT64& sensorId, json& out, string const endpoint);
+		string _getStationCodeById(const INT64& stationId);
 	};
 }
 

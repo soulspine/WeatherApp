@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -16,7 +16,7 @@ struct Sensor {
     INT64 id;
     string formula;
     string code;
-    optional<string> meteredValue;
+    string meteredValue;
     INT64 meteredValueId;
 };
 
@@ -63,7 +63,7 @@ inline void to_json(json& j, const Sensor& s) {
         {"id", s.id},
         {"formula", s.formula},
         {"code", s.code},
-        {"meteredValue", s.meteredValue.has_value() ? json(*s.meteredValue) : json(nullptr)},
+        {"meteredValue", s.meteredValue},
         {"meteredValueId", s.meteredValueId}
     };
 }
@@ -72,14 +72,10 @@ inline void from_json(const json& j, Sensor& s) {
     j.at("id").get_to(s.id);
     j.at("formula").get_to(s.formula);
     j.at("code").get_to(s.code);
-    if (j.contains("meteredValue") && !j.at("meteredValue").is_null()) {
-        s.meteredValue = j.at("meteredValue").get<string>();
-    }
-    else {
-        s.meteredValue = std::nullopt;
-    }
+    j.at("meteredValue").get_to(s.meteredValue);
     j.at("meteredValueId").get_to(s.meteredValueId);
 }
+
 
 // --- JSON serialization for Station ---
 inline void to_json(json& j, const Station& s) {

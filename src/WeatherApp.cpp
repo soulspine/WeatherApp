@@ -28,8 +28,11 @@ App::App() {
 	loadSavedStationData();
 
 	json freshData;
+	INT64 stationId = 52;
 
-	cout << getDataForSensorByDaysBack(14734, freshData, 3) << endl;
+	cout << _getStationCodeById(stationId) << endl;
+
+	cout << getDataForStationByDaysBack(stationId, freshData, 3) << endl;
 	cout << freshData.dump(4, ' ') << endl;
 }
 
@@ -191,10 +194,11 @@ void App::setUpAppDataFolder() {
 	filesystem::create_directories(appDataPath / "database");
 }
 
-bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, string endpoint) {
+bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string endpoint) {
 	out = json::array();
 	int pages = INT_MAX;
 	for (int i = 0; i < pages; i++) {
+		rateLimitRetry:
 		auto response = _requestGet(format("{}&size=500&page={}", endpoint, i));
 		if (response.status_code == 200) {
 			json data = json::parse(response.text);
@@ -229,6 +233,13 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, string endpoin
 			return true;
 		}
 		else {
+			if (response.status_code == 429) {
+				cout << "Rate limit reached. Sleeping for 5s." << endl;
+				Sleep(5000);
+				goto rateLimitRetry;
+			}
+
+
 			_showErrorBox(ERRORMSG_REQUEST_FAILED);
 			return false;
 		}
@@ -240,6 +251,28 @@ bool App::getDataForSensorByDaysBack(const INT64& sensorId, json& out, const int
 	return _sensorIteratorHelper(sensorId, out, endpoint);
 }
 
+bool App::getDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount) {
+	return getDataForStationByDaysBack(_getStationCodeById(stationId), out, daysCount);
+}
+bool App::getDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount) {
+	out.clear();
+	for (const auto& sensor : stationCache.stations[stationCode].sensors) {
+		cout << sensor.id << endl;
+		json sensorData;
+		getDataForSensorByDaysBack(sensor.id, sensorData, daysCount);
+		out[sensor.meteredValue] = sensorData;
+	}
+	return true;
+}
+
 void App::_showErrorBox(LPCWSTR message) {
 	MessageBoxW(NULL, message, L"Error", MB_OK | MB_ICONERROR);
+}
+
+string App::_getStationCodeById(const INT64& stationId) {
+	for (const auto& station : stationCache.stations) {
+		if (station.second.id == stationId) {
+			return station.first;
+		}
+	}
 }
