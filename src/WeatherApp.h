@@ -1,4 +1,5 @@
-﻿#ifndef WEATHER_APP_H
+﻿#pragma execution_character_set("utf-8")
+#ifndef WEATHER_APP_H
 #define WEATHER_APP_H
 
 #include <windows.h>
@@ -11,6 +12,8 @@
 #include <cpr/cpr.h>
 #include "json.hpp"
 #include <iostream>
+#include <shlobj.h>
+#include <filesystem>
 
 
 using json = nlohmann::json;
@@ -19,22 +22,28 @@ using namespace std;
 namespace WeatherApp {
 
 	class App {
-		public:
-			App();
-		private:
-			unordered_map<string, Station> stations;
-			vector<string> cachedMiasta;
-			vector<string> cachedWojewodztwa;
-			vector<string> cachedGminy;
-			vector<string> cachedPowiaty;
+	public:
+		App();
+	private:
+		StationCache stationCache;
 
-			const string BASE_URL = "https://api.gios.gov.pl/pjp-api/v1/rest/";
+		const LPCWSTR ERRORMSG_REQUEST_FAILED = L"Nie można zrealizować żądania. Sprawdź połączenie z internetem lub spróbuj ponownie później.";
+		const LPCWSTR ERRORMSG_FILE_OPEN_FAILED = L"Nie można otworzyć pliku z danymi stacji.";
+		const string BASE_URL = "https://api.gios.gov.pl/pjp-api/v1/rest/";
+		filesystem::path appDataPath;
 
-			void fetchStationDataAndCacheIt();
-			cpr::Response requestGet(string endpoint, bool ignoreBaseUrl = false);
-			string wcharToString(const wchar_t* wchar);
-            vector<string> removeVectorDuplicates(const vector<string>& input);
-			string getJsonString(const nlohmann::json& obj, const std::string& key, const std::string& defaultValue = "null");
+		void loadSavedStationData();
+		void fetchStationDataAndSaveIt();
+		void setUpAppDataFolder();
+
+		bool getDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount);
+
+		cpr::Response _requestGet(string endpoint, bool ignoreBaseUrl = false);
+		string _wcharToString(const wchar_t* wchar);
+		vector<string> _removeVectorDuplicates(const vector<string>& input);
+		string _getJsonString(const json& obj, const string& key, const string& defaultValue = "null");
+		void _showErrorBox(LPCWSTR message);
+		bool _sensorIteratorHelper(const INT64& sensorId, json& out, string endpoint);
 	};
 }
 

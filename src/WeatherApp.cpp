@@ -20,15 +20,20 @@ App::App() {
 		// Convert the wchar_t[] array to std::wstring and concatenate
 		std::wstring errorMsg = part1 + wstring(fileName)  + part2;
 
-		// Pass the concatenated result to MessageBoxW
-		MessageBoxW(NULL, errorMsg.c_str(), L"Essential file missing", MB_OK | MB_ICONERROR);
+		_showErrorBox(errorMsg.c_str());
 		exit(1);
 	}
 
-	fetchStationDataAndCacheIt();
+	setUpAppDataFolder();
+	loadSavedStationData();
+
+	json freshData;
+
+	cout << getDataForSensorByDaysBack(14734, freshData, 3) << endl;
+	cout << freshData.dump(4, ' ') << endl;
 }
 
-cpr::Response App::requestGet(string endpoint, bool ignoreBaseUrl) {
+cpr::Response App::_requestGet(string endpoint, bool ignoreBaseUrl) {
 	if (!ignoreBaseUrl) {
 		//make sure there is no slash at the start of the endpoint
 		while (endpoint[0] == '/') {
@@ -41,7 +46,7 @@ cpr::Response App::requestGet(string endpoint, bool ignoreBaseUrl) {
 	return cpr::Get(cpr::Url{ endpoint });
 }
 
-string App::wcharToString(const wchar_t* wchar) {
+string App::_wcharToString(const wchar_t* wchar) {
 	string str = "";
 	for (int i = 0; wchar[i] != '\0'; i++) {
 		str += wchar[i];
@@ -49,30 +54,56 @@ string App::wcharToString(const wchar_t* wchar) {
 	return str;
 }
 
-vector<string> App::removeVectorDuplicates(const vector<string>& input) {
+vector<string> App::_removeVectorDuplicates(const vector<string>& input) {
 	set<string> unique(input.begin(), input.end());
 	return vector<std::string>(unique.begin(), unique.end());
 }
 
-string App::getJsonString(const nlohmann::json& obj, const std::string& key, const std::string& defaultValue) {
+string App::_getJsonString(const json& obj, const string& key, const string& defaultValue) {
 	if (obj.contains(key) && obj[key].is_string()) {
 		return obj[key].get<std::string>();
 	}
 	return defaultValue;
 }
 
-void App::fetchStationDataAndCacheIt() {
+void App::loadSavedStationData() {
+	filesystem::path stationDataPath = appDataPath / "stationData.json";
+	if (filesystem::exists(stationDataPath)) {
+		//load
+		ifstream stationDataFile(stationDataPath);
+		if (stationDataFile.is_open()) {
+			json j;
+			stationDataFile >> j;
+			stationCache.stations = j["stations"];
+			stationCache.miasta = j["miasta"];
+			stationCache.wojewodztwa = j["wojewodztwa"];
+			stationCache.gminy = j["gminy"];
+			stationCache.powiaty = j["powiaty"];
+			stationDataFile.close();
+		}
+		else {
+			_showErrorBox(L"Nie można otworzyć pliku z danymi stacji.");
+		}
+	}
+	else {
+		//fetch and save
+		fetchStationDataAndSaveIt();
+	}
+	cout << "Loaded " << stationCache.stations.size() << " stations." << endl;
+	cout << "Loaded " << stationCache.miasta.size() << " cities." << endl;
+	cout << "Loaded " << stationCache.wojewodztwa.size() << " voivodeships." << endl;
+	cout << "Loaded " << stationCache.gminy.size() << " communes." << endl;
+	cout << "Loaded " << stationCache.powiaty.size() << " counties." << endl;
+}
 
-	stations.clear();
-	cachedMiasta.clear();
-	cachedWojewodztwa.clear();
-	cachedGminy.clear();
-	cachedPowiaty.clear();
+void App::fetchStationDataAndSaveIt() {
+
+	stationCache.clear();
 
 	//FETCHING STATIONS DATA
 	int pages = INT_MAX;
 	for (int i = 0; i < pages; i++) {
-		auto response = requestGet("station/findAll?page=" + to_string(i) + "&size=500");
+		auto response = _requestGet("station/findAll?page=" + to_string(i) + "&size=500");
 		if (response.status_code == 200) {
 
 			json data = json::parse(response.text);
@@ -86,39 +117,129 @@ void App::fetchStationDataAndCacheIt() {
 			for (const auto& station : stationsList) {
 				Station s;
 				s.id = station["Identyfikator stacji"];
-				s.kodStacji = getJsonString(station, "Kod stacji");
-				s.nazwa = getJsonString(station, "Nazwa stacji");
+				s.kodStacji = _getJsonString(station, "Kod stacji");
+				s.nazwa = _getJsonString(station, "Nazwa stacji");
 				s.idMiasta = station["Identyfikator miasta"];
-				s.nazwaMiasta = getJsonString(station, "Nazwa miasta");
-				s.gmina = getJsonString(station, "Gmina");
-				s.powiat = getJsonString(station, "Powiat");
-				s.wojewodztwo = getJsonString(station, "Województwo");
-				s.ulica = getJsonString(station, "Ulica");
-				s.szerokoscWGS84 = getJsonString(station, "WGS84 φ N");
-				s.dlugoscWGS84 = getJsonString(station, "WGS84 λ E");
+				s.nazwaMiasta = _getJsonString(station, "Nazwa miasta");
+				s.gmina = _getJsonString(station, "Gmina");
+				s.powiat = _getJsonString(station, "Powiat");
+				s.wojewodztwo = _getJsonString(station, "Województwo");
+				s.ulica = _getJsonString(station, "Ulica");
+				s.szerokoscWGS84 = _getJsonString(station, "WGS84 φ N");
+				s.dlugoscWGS84 = _getJsonString(station, "WGS84 λ E");
 
-				stations.insert({ s.kodStacji, s });
+				int sensorsPages = INT_MAX;
 
-				cachedMiasta.push_back(s.nazwaMiasta);
-				cachedWojewodztwa.push_back(s.wojewodztwo);
-				cachedGminy.push_back(s.gmina);
-				cachedPowiaty.push_back(s.powiat);
+				for (int j = 0; j < sensorsPages; j++) {
+					auto sensorsRes = _requestGet(format("station/sensors/{}?page={}&size=500", s.id, j));
+					json sensorsData = json::parse(sensorsRes.text);
+					sensorsPages = sensorsData["totalPages"];
+					auto sensorsList = sensorsData["Lista stanowisk pomiarowych dla podanej stacji"];
+					for (const auto& sensor : sensorsList) {
+						Sensor sn;
+						sn.id = sensor["Identyfikator stanowiska"];
+						sn.formula = _getJsonString(sensor, "Wskaźnik - wzór");
+						sn.code = _getJsonString(sensor, "Wskaźnik - kod");
+						sn.meteredValue = _getJsonString(sensor, "Wskaźnik");
+						sn.meteredValueId = sensor["Id wskaźnika"];
+						s.sensors.push_back(sn);
+					}
+				}
+				
+				stationCache.stations[s.kodStacji] = s;
+				stationCache.miasta.push_back(s.nazwaMiasta);
+				stationCache.wojewodztwa.push_back(s.wojewodztwo);
+				stationCache.gminy.push_back(s.gmina);
+				stationCache.powiaty.push_back(s.powiat);
+				cout << "Fetched station " << s.kodStacji << endl;
 			}
 		}
 		else {
-			MessageBoxW(NULL, L"Unable to access API, make sure you have internet connection. API could be down. App will now exit.", L"Error", MB_OK | MB_ICONERROR);
+			_showErrorBox(ERRORMSG_REQUEST_FAILED);
 			exit(2);
 		};
 	}
 
-	cachedMiasta = removeVectorDuplicates(cachedMiasta);
-	cachedWojewodztwa = removeVectorDuplicates(cachedWojewodztwa);
-	cachedGminy = removeVectorDuplicates(cachedGminy);
-	cachedPowiaty = removeVectorDuplicates(cachedPowiaty);
+	stationCache.miasta = _removeVectorDuplicates(stationCache.miasta);
+	stationCache.wojewodztwa = _removeVectorDuplicates(stationCache.wojewodztwa);
+	stationCache.gminy = _removeVectorDuplicates(stationCache.gminy);
+	stationCache.powiaty = _removeVectorDuplicates(stationCache.powiaty);
 
-	cout << "Fetched " << stations.size() << " stations." << endl;
-	cout << "Cached " << cachedPowiaty.size() << " powiaty." << endl;
-	cout << "Cached " << cachedGminy.size() << " gminy." << endl;
-	cout << "Cached " << cachedWojewodztwa.size() << " wojewodztwa." << endl;
-	cout << "Cached " << cachedMiasta.size() << " miasta." << endl;
+	//SAVE TO FILE
+	filesystem::path stationDataPath = appDataPath / "stationData.json";
+	ofstream stationDataFile(stationDataPath);
+	if (!stationDataFile) {
+		_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+	}
+
+	json j = stationCache;
+
+	stationDataFile << j.dump(4, ' ') << endl;
+	stationDataFile.close();
+}
+
+void App::setUpAppDataFolder() {
+	char path[MAX_PATH];
+	SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, path);
+	appDataPath = path;
+
+	appDataPath /= "soulspine";
+	filesystem::create_directories(appDataPath);
+
+	appDataPath /= "WeatherApp";
+	filesystem::create_directories(appDataPath);
+	filesystem::create_directories(appDataPath / "database");
+}
+
+bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, string endpoint) {
+	out = json::array();
+	int pages = INT_MAX;
+	for (int i = 0; i < pages; i++) {
+		auto response = _requestGet(format("{}&size=500&page={}", endpoint, i));
+		if (response.status_code == 200) {
+			json data = json::parse(response.text);
+			pages = data["totalPages"];
+			auto dataList = data["Lista archiwalnych wyników pomiarów"];
+			for (const auto& item : dataList) {
+				json date = item["Data"];
+				json value = item["Wartość"];
+				if (!date.is_null() && !value.is_null()) {
+					string dateString = date;
+					tm tm = {};
+					istringstream ss(dateString);
+					ss >> get_time(&tm, "%Y-%m-%d %H:%M:%S");
+					time_t timestamp = mktime(&tm);
+
+					SensorReading sr;
+					sr.timestamp = timestamp - 3600; // normalizing to UTC
+					sr.value = value;
+					out.push_back(sr);
+					filesystem::path sensorDataPath = appDataPath / "database" / to_string(sensorId);
+					filesystem::create_directories(sensorDataPath);
+					ofstream file(sensorDataPath / (to_string(sr.timestamp) + ".json"));
+					if (file.is_open()) {
+						file << json(sr).dump(4, ' ');
+						file.close();
+					}
+					else {
+						_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+					}
+				}
+			}
+			return true;
+		}
+		else {
+			_showErrorBox(ERRORMSG_REQUEST_FAILED);
+			return false;
+		}
+	}
+}
+
+bool App::getDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount) {
+	string endpoint = format("archivalData/getDataBySensor/{}?dayNumber={}", sensorId, daysCount);
+	return _sensorIteratorHelper(sensorId, out, endpoint);
+}
+
+void App::_showErrorBox(LPCWSTR message) {
+	MessageBoxW(NULL, message, L"Error", MB_OK | MB_ICONERROR);
 }
