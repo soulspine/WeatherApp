@@ -26,14 +26,6 @@ App::App() {
 
 	setUpAppDataFolder();
 	loadSavedStationData();
-
-	json freshData;
-	INT64 stationId = 52;
-
-	cout << _getStationCodeById(stationId) << endl;
-
-	cout << getDataForStationByDaysBack(stationId, freshData, 3) << endl;
-	cout << freshData.dump(4, ' ') << endl;
 }
 
 cpr::Response App::_requestGet(string endpoint, bool ignoreBaseUrl) {
@@ -106,7 +98,7 @@ void App::fetchStationDataAndSaveIt() {
 	//FETCHING STATIONS DATA
 	int pages = INT_MAX;
 	for (int i = 0; i < pages; i++) {
-		auto response = _requestGet("station/findAll?page=" + to_string(i) + "&size=500");
+		auto response = _requestGet("station/findAll?page=" + to_string(i));
 		if (response.status_code == 200) {
 
 			json data = json::parse(response.text);
@@ -130,11 +122,12 @@ void App::fetchStationDataAndSaveIt() {
 				s.ulica = _getJsonString(station, "Ulica");
 				s.szerokoscWGS84 = _getJsonString(station, "WGS84 φ N");
 				s.dlugoscWGS84 = _getJsonString(station, "WGS84 λ E");
+				s.comboLabel = format("{} {}", s.nazwaMiasta, s.ulica);
 
 				int sensorsPages = INT_MAX;
 
 				for (int j = 0; j < sensorsPages; j++) {
-					auto sensorsRes = _requestGet(format("station/sensors/{}?page={}&size=500", s.id, j));
+					auto sensorsRes = _requestGet(format("station/sensors/{}?page={}", s.id, j));
 					json sensorsData = json::parse(sensorsRes.text);
 					sensorsPages = sensorsData["totalPages"];
 					auto sensorsList = sensorsData["Lista stanowisk pomiarowych dla podanej stacji"];
@@ -199,7 +192,7 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 	int pages = INT_MAX;
 	for (int i = 0; i < pages; i++) {
 		rateLimitRetry:
-		auto response = _requestGet(format("{}&size=500&page={}", endpoint, i));
+		auto response = _requestGet(format("{}&page={}", endpoint, i));
 		if (response.status_code == 200) {
 			json data = json::parse(response.text);
 			pages = data["totalPages"];
@@ -246,20 +239,20 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 	}
 }
 
-bool App::getDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount) {
+bool App::GetDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount) {
 	string endpoint = format("archivalData/getDataBySensor/{}?dayNumber={}", sensorId, daysCount);
 	return _sensorIteratorHelper(sensorId, out, endpoint);
 }
 
-bool App::getDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount) {
-	return getDataForStationByDaysBack(_getStationCodeById(stationId), out, daysCount);
+bool App::GetDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount) {
+	return GetDataForStationByDaysBack(_getStationCodeById(stationId), out, daysCount);
 }
-bool App::getDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount) {
+bool App::GetDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount) {
 	out.clear();
 	for (const auto& sensor : stationCache.stations[stationCode].sensors) {
 		cout << sensor.id << endl;
 		json sensorData;
-		getDataForSensorByDaysBack(sensor.id, sensorData, daysCount);
+		GetDataForSensorByDaysBack(sensor.id, sensorData, daysCount);
 		out[sensor.meteredValue] = sensorData;
 	}
 	return true;
@@ -275,4 +268,47 @@ string App::_getStationCodeById(const INT64& stationId) {
 			return station.first;
 		}
 	}
+}
+
+vector<Station> App::GetCachedStations() {
+	auto out = vector<Station>();
+	for (const auto& station : stationCache.stations) {
+		out.push_back(station.second);
+	}
+	return out;
+}
+
+SensorReading App::GetLastSensorReading(INT64 sensorId) {
+	filesystem::path sensorDataPath = appDataPath / "database" / to_string(sensorId);
+
+	SensorReading out = {};
+	out.timestamp = 0;
+	out.value = 0;
+
+	if (filesystem::exists(sensorDataPath)) {
+		for (const auto& file : filesystem::directory_iterator(sensorDataPath)) {
+			if (file.is_regular_file() and file.path().extension() == ".json") {
+				string filename = file.path().filename().string();
+				INT64 timestamp = stoll(filename.substr(0, filename.find('.')));
+				if (timestamp > out.timestamp) {
+					out.timestamp = timestamp;
+				}
+			}
+		}
+
+		if (out.timestamp != 0) {
+			ifstream file(sensorDataPath / (to_string(out.timestamp) + ".json"));
+			if (file.is_open()) {
+				json j;
+				file >> j;
+				out = j;
+				file.close();
+			}
+			else {
+				_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+			}
+		}
+	}
+
+	return out;
 }

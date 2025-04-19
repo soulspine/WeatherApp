@@ -33,6 +33,7 @@ struct Station {
     string ulica;
     string wojewodztwo;
     vector<Sensor> sensors;
+	string comboLabel;
 };
 
 struct StationCache {
@@ -55,7 +56,6 @@ struct SensorReading {
     INT64 timestamp; // UNIX timestamp (UTC)
     double value;
 };
-
 
 // --- JSON serialization for Sensor ---
 inline void to_json(json& j, const Sensor& s) {
@@ -91,7 +91,8 @@ inline void to_json(json& j, const Station& s) {
         {"powiat", s.powiat},
         {"ulica", s.ulica},
         {"wojewodztwo", s.wojewodztwo},
-        {"sensors", s.sensors}
+        {"sensors", s.sensors},
+        {"comboLabel", s.comboLabel}
     };
 }
 
@@ -108,6 +109,7 @@ inline void from_json(const json& j, Station& s) {
     j.at("ulica").get_to(s.ulica);
     j.at("wojewodztwo").get_to(s.wojewodztwo);
     j.at("sensors").get_to(s.sensors);
+	j.at("comboLabel").get_to(s.comboLabel);
 }
 
 // --- JSON serialization for StationCache ---

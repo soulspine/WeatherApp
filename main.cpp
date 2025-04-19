@@ -1,4 +1,6 @@
-﻿// Dear ImGui: standalone example application for DirectX 9
+﻿#pragma execution_character_set("utf-8")
+
+// Dear ImGui: standalone example application for DirectX 9
 
 // Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq
@@ -13,6 +15,7 @@
 #include <d3d9.h>
 #include <tchar.h>
 #include "src/WeatherApp.h"
+#include <chrono>
 
 const wchar_t CLASS_NAME[] = L"WeatherAppWindowClass";
 const wchar_t MAIN_WINDOW_TITLE[] = L"Weather App";
@@ -30,6 +33,13 @@ void CleanupDeviceD3D();
 void ResetDevice();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+//WEATHER APP GUI ELEMENTS
+int selectedComboStationIndex = 0;
+vector<Station> comboStations;
+vector<const char*> comboStationEntries;
+
+unordered_map<INT64, SensorReading> cachedSensorReadings;
+
 // Main code
 //int APIENTRY WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE hInstPrev, _In_ PSTR cmdline, _In_ int cmdshow)
 int main()
@@ -37,6 +47,11 @@ int main()
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     WeatherApp::App weatherApp;
+    comboStations = weatherApp.GetCachedStations();
+
+    for (const auto& station : comboStations) {
+		comboStationEntries.push_back(station.comboLabel.c_str());
+    }
 
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
@@ -66,6 +81,13 @@ int main()
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
     //io.ConfigViewportsNoAutoMerge = true;
     //io.ConfigViewportsNoTaskBarIcon = true;
+
+    ImVector<ImWchar> ranges;
+    ImFontGlyphRangesBuilder builder;
+    builder.AddText("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ");
+    builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+    builder.BuildRanges(&ranges);
+    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f, nullptr, ranges.Data);
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -167,14 +189,59 @@ int main()
         bool open = true;
         if (ImGui::Begin("FullScreenWindow", &open, fullscreenWindowFlags))
         {
-            ImGui::SetCursorPosX(viewport->Size.x/2);
-			ImGui::SetCursorPosY(viewport->Size.y/2);
-            ImGui::Text("This window takes up the entire space!");
-        }
+            if (!comboStations.empty()) {
 
+                // Combo box do wyboru stacji
+                ImGui::Combo("Kody dostępnych stacji", &selectedComboStationIndex, comboStationEntries.data(), comboStationEntries.size());
+
+                // Wybrana stacja
+                Station selectedStation = comboStations[selectedComboStationIndex];
+                ImGui::Text("Wybrana stacja: %s (%d)", selectedStation.kodStacji.c_str(), selectedStation.id);
+
+                ImGui::Spacing(); // Trochę miejsca
+                ImGui::Separator(); // Linia oddzielająca Combo od sensorów
+                ImGui::Text("Sensory:");
+                ImGui::Spacing();
+
+                // Lista sensorów
+                for (const auto& sensor : selectedStation.sensors) {
+
+                    if (cachedSensorReadings.size() != selectedStation.sensors.size()) {
+                        cachedSensorReadings.insert({ sensor.id, weatherApp.GetLastSensorReading(sensor.id) });
+                    }
+
+                    SensorReading lastCachedReading = cachedSensorReadings[sensor.id];
+
+                    string lastReadingMessage = "";
+
+                    if (lastCachedReading.timestamp != 0) {
+                        auto currentTimestamp = std::chrono::system_clock::now();
+                        auto currentTimestampSec = std::chrono::duration_cast<std::chrono::seconds>(currentTimestamp.time_since_epoch()).count();
+
+                        int hourDiff = (currentTimestampSec - lastCachedReading.timestamp) / 3600;
+						lastReadingMessage = format("{} ({}h temu)", lastCachedReading.value, hourDiff);
+                    }
+                    else {
+						lastReadingMessage = "Brak";
+                    }
+
+                    ImGui::Text(format("- {} - Ostatni odczyt: {}", sensor.meteredValue, lastReadingMessage).c_str());
+                    
+                    ImGui::SameLine();
+                    if (ImGui::Button(format("Odśwież##{}", sensor.id).c_str())) {
+						json sensorData;
+                        weatherApp.GetDataForSensorByDaysBack(sensor.id, sensorData, 1);
+						cachedSensorReadings[sensor.id] = weatherApp.GetLastSensorReading(sensor.id);
+                    }
+                    
+                    ImGui::Spacing();
+                }
+            }
+        }
         ImGui::End();
 
-        ImGui::ShowDemoWindow();
+
+        //ImGui::ShowDemoWindow();
 
         // Rendering
         ImGui::EndFrame();
