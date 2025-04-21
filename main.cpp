@@ -37,6 +37,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 int selectedComboStationIndex = 0;
 vector<Station> comboStations;
 vector<const char*> comboStationEntries;
+bool isFetching = false;
 
 unordered_map<INT64, SensorReading> cachedSensorReadings;
 
@@ -49,8 +50,17 @@ int main()
     WeatherApp::App weatherApp;
     comboStations = weatherApp.GetCachedStations();
 
+	sort(comboStations.begin(), comboStations.end(), [](const Station& a, const Station& b) {
+		return a.comboLabel < b.comboLabel;
+		});
+
+    int i = 0;
     for (const auto& station : comboStations) {
+        if (station.id == 225) {
+            selectedComboStationIndex = i;
+        }
 		comboStationEntries.push_back(station.comboLabel.c_str());
+        i++;
     }
 
     // Create application window
@@ -191,15 +201,14 @@ int main()
         {
             if (!comboStations.empty()) {
 
-                // Combo box do wyboru stacji
+				ImGui::BeginDisabled(isFetching);
                 ImGui::Combo("Kody dostępnych stacji", &selectedComboStationIndex, comboStationEntries.data(), comboStationEntries.size());
 
-                // Wybrana stacja
                 Station selectedStation = comboStations[selectedComboStationIndex];
                 ImGui::Text("Wybrana stacja: %s (%d)", selectedStation.kodStacji.c_str(), selectedStation.id);
 
-                ImGui::Spacing(); // Trochę miejsca
-                ImGui::Separator(); // Linia oddzielająca Combo od sensorów
+                ImGui::Spacing();
+                ImGui::Separator();
                 ImGui::Text("Sensory:");
                 ImGui::Spacing();
 
@@ -229,13 +238,21 @@ int main()
                     
                     ImGui::SameLine();
                     if (ImGui::Button(format("Odśwież##{}", sensor.id).c_str())) {
-						json sensorData;
-                        weatherApp.GetDataForSensorByDaysBack(sensor.id, sensorData, 1);
-						cachedSensorReadings[sensor.id] = weatherApp.GetLastSensorReading(sensor.id);
+                        INT64 idCopy = sensor.id; // kopiujemy id na potrzeby wątku
+                        isFetching = true;
+                        cout << idCopy << endl;
+                        thread([&, idCopy]() {
+                            json sensorData;
+                            cout << selectedComboStationIndex << endl;
+                            weatherApp.GetDataForSensorByDaysBack(idCopy, sensorData, 1);
+                            cachedSensorReadings[idCopy] = weatherApp.GetLastSensorReading(idCopy);
+                            isFetching = false;
+                            }).detach();
                     }
                     
                     ImGui::Spacing();
                 }
+                ImGui::EndDisabled();
             }
         }
         ImGui::End();
