@@ -189,16 +189,19 @@ void App::setUpAppDataFolder() {
 
 bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string endpoint) {
 	out = json::array();
+	cout << "Fetching data for sensor " << sensorId << " | " << endpoint << endl;
 	int pages = INT_MAX;
 	for (int i = 0; i < pages; i++) {
 		rateLimitRetry:
-		auto response = _requestGet(format("{}&page={}", endpoint, i));
+		auto response = _requestGet(format("{}&page={}&size=500", endpoint, i));
+		cout << response.text << endl;
 		if (response.status_code == 200) {
+			cout << json::accept(response.text) << endl;
 			json data = json::parse(response.text);
 			pages = data["totalPages"];
 			auto dataList = data["Lista archiwalnych wyników pomiarów"];
 			for (const auto& item : dataList) {
-				cout << item.dump(4, ' ');
+				cout << item.dump(4, ' ') << endl << endl;
 				json date = item["Data"];
 				json value = item["Wartość"];
 				if (!date.is_null() && !value.is_null()) {
@@ -224,7 +227,6 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 					}
 				}
 			}
-			return true;
 		}
 		else {
 			if (response.status_code == 429) {
@@ -239,6 +241,7 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 			return false;
 		}
 	}
+	return true;
 }
 
 bool App::GetDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount) {
