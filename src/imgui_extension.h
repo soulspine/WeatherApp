@@ -25,7 +25,7 @@ bool DateRangeBackwardsSelector(int* fromDaysBack, int* toDaysBack, string& star
         }
     }
 
-    if (ImGui::SliderInt("Do ilu dni wstecz (koniec)", toDaysBack, -1, 366)) {
+    if (ImGui::SliderInt("Do ilu dni wstecz (koniec)", toDaysBack, -1, 365)) {
         changed = true;
 		if (*toDaysBack >= *fromDaysBack) {
 			*fromDaysBack = *toDaysBack + 1;
