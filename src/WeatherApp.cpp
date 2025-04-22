@@ -198,6 +198,7 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 			pages = data["totalPages"];
 			auto dataList = data["Lista archiwalnych wyników pomiarów"];
 			for (const auto& item : dataList) {
+				cout << item.dump(4, ' ');
 				json date = item["Data"];
 				json value = item["Wartość"];
 				if (!date.is_null() && !value.is_null()) {
@@ -232,6 +233,7 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 				goto rateLimitRetry;
 			}
 
+			cout << response.text << endl;
 
 			_showErrorBox(ERRORMSG_REQUEST_FAILED);
 			return false;
@@ -244,18 +246,9 @@ bool App::GetDataForSensorByDaysBack(const INT64& sensorId, json& out, const int
 	return _sensorIteratorHelper(sensorId, out, endpoint);
 }
 
-bool App::GetDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount) {
-	return GetDataForStationByDaysBack(_getStationCodeById(stationId), out, daysCount);
-}
-bool App::GetDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount) {
-	out.clear();
-	for (const auto& sensor : stationCache.stations[stationCode].sensors) {
-		cout << sensor.id << endl;
-		json sensorData;
-		GetDataForSensorByDaysBack(sensor.id, sensorData, daysCount);
-		out[sensor.meteredValue] = sensorData;
-	}
-	return true;
+bool App::GetDataForSensorByTimeFrame(const INT64& sensorId, json& out, const string& dateFrom, const string& dateTo) {
+	string endpoint = format("archivalData/getDataBySensor/{}?dateFrom={}&dateTo={}", sensorId, cpr::util::urlEncode(dateFrom), cpr::util::urlEncode(dateTo));
+	return _sensorIteratorHelper(sensorId, out, endpoint);
 }
 
 void App::_showErrorBox(LPCWSTR message) {

@@ -20,6 +20,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\imgui_extension.h" />
     <ClInclude Include="src\Structs.h" />
     <ClInclude Include="src\WeatherApp.h" />
     <ClInclude Include="vendor\imgui\imconfig.h" />
@@ -137,7 +138,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>vendor\json; vendor\utfcpp; vendor\utfcpp\utf8</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>vendor\json; vendor\imgui; src</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>

@@ -16,6 +16,7 @@
 #include <tchar.h>
 #include "src/WeatherApp.h"
 #include <chrono>
+#include <imgui_extension.h>
 
 const wchar_t CLASS_NAME[] = L"WeatherAppWindowClass";
 const wchar_t MAIN_WINDOW_TITLE[] = L"Weather App";
@@ -38,6 +39,9 @@ int selectedComboStationIndex = 0;
 vector<Station> comboStations;
 vector<const char*> comboStationEntries;
 bool isFetching = false;
+int fromBack = 3;
+int toBack = -1;
+std::string startDate, endDate;
 
 unordered_map<INT64, SensorReading> cachedSensorReadings;
 
@@ -240,11 +244,10 @@ int main()
                     if (ImGui::Button(format("Odśwież##{}", sensor.id).c_str())) {
                         INT64 idCopy = sensor.id; // kopiujemy id na potrzeby wątku
                         isFetching = true;
-                        cout << idCopy << endl;
                         thread([&, idCopy]() {
                             json sensorData;
                             cout << selectedComboStationIndex << endl;
-                            weatherApp.GetDataForSensorByDaysBack(idCopy, sensorData, 1);
+                            weatherApp.GetDataForSensorByTimeFrame(idCopy, sensorData, startDate, endDate);
                             cachedSensorReadings[idCopy] = weatherApp.GetLastSensorReading(idCopy);
                             isFetching = false;
                             }).detach();
@@ -252,6 +255,10 @@ int main()
                     
                     ImGui::Spacing();
                 }
+
+                if (DateRangeBackwardsSelector(&fromBack, &toBack, startDate, endDate)) {
+                }
+
                 ImGui::EndDisabled();
             }
         }

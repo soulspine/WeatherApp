@@ -26,6 +26,7 @@ namespace WeatherApp {
 		App();
 
 		bool GetDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount);
+		bool GetDataForSensorByTimeFrame(const INT64& sensorId, json& out, const string& dateFrom, const string& dateTo);
 
 		bool GetDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount);
 		bool GetDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount);
