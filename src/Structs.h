@@ -57,6 +57,11 @@ struct SensorReading {
     double value;
 };
 
+struct SensorPlotContainer {
+    vector<double> xValues;
+    vector<double> yValues;
+};
+
 // --- JSON serialization for Sensor ---
 inline void to_json(json& j, const Sensor& s) {
     j = {

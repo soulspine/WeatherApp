@@ -18,6 +18,8 @@
 #include <chrono>
 #include <imgui_extension.h>
 #include "implot.h"
+#include <ctime>
+#include <cstdio>
 
 const wchar_t CLASS_NAME[] = L"WeatherAppWindowClass";
 const wchar_t MAIN_WINDOW_TITLE[] = L"Weather App";
@@ -45,7 +47,24 @@ int toBack = -1;
 std::string startDate, endDate;
 
 unordered_map<INT64, bool> cachedDisplaySensorOnPlot;
-unordered_map<INT64, SensorReading> cachedSensorReadings;
+unordered_map<INT64, SensorReading> cachedMostRecentSensorReadings;
+unordered_map<INT64, SensorPlotContainer> cachedSensorPlotPoints;
+
+bool refreshPlot = false;
+
+int DateTimeFormatter(double value, char* buff, int size, void* /*data*/) {
+    // Konwertuj timestamp do czasu
+    std::time_t t = static_cast<std::time_t>(value);
+    std::tm tm;
+    localtime_s(&tm, &t);  // wątko‑bezpieczna wersja localtime
+
+    // Jeśli godzina to 00:00, wyświetl tylko datę (dzień.miesiąc.rok)
+    if (tm.tm_hour == 0 && tm.tm_min == 0) {
+        return std::strftime(buff, size, "%d.%m.%Y", &tm);
+    }
+    // W przeciwnym razie, wyświetl godzinę i minutę (godzina:minuta)
+    return std::strftime(buff, size, "%H:%M", &tm);
+}
 
 // Main code
 //int APIENTRY WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE hInstPrev, _In_ PSTR cmdline, _In_ int cmdshow)
@@ -90,6 +109,7 @@ int main()
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -209,7 +229,8 @@ int main()
 
 				ImGui::BeginDisabled(isFetching);
                 if (ImGui::Combo("Kody dostępnych stacji", &selectedComboStationIndex, comboStationEntries.data(), comboStationEntries.size())) {
-                    cachedSensorReadings.clear();
+                    cachedMostRecentSensorReadings.clear();
+                    refreshPlot = true;
                 }
 
                 Station selectedStation = comboStations[selectedComboStationIndex];
@@ -223,11 +244,14 @@ int main()
                 // Lista sensorów
                 for (const auto& sensor : selectedStation.sensors) {
 
-                    if (cachedSensorReadings.size() != selectedStation.sensors.size()) {
-                        cachedSensorReadings.insert({ sensor.id, weatherApp.GetLastSensorReading(sensor.id) });
+                    if (cachedMostRecentSensorReadings.size() != selectedStation.sensors.size()) {
+                        cachedMostRecentSensorReadings.insert({ sensor.id, weatherApp.GetLastSensorReading(sensor.id) });
+						if (cachedDisplaySensorOnPlot.find(sensor.id) == cachedDisplaySensorOnPlot.end()) {
+							cachedDisplaySensorOnPlot.insert({ sensor.id, false });
+						}
                     }
 
-                    SensorReading lastCachedReading = cachedSensorReadings[sensor.id];
+                    SensorReading lastCachedReading = cachedMostRecentSensorReadings[sensor.id];
 
                     string lastReadingMessage = "";
 
@@ -252,14 +276,15 @@ int main()
                             json sensorData;
                             cout << selectedComboStationIndex << endl;
                             weatherApp.GetDataForSensorByTimeFrame(idCopy, sensorData, startDate, endDate);
-                            cachedSensorReadings[idCopy] = weatherApp.GetLastSensorReading(idCopy);
+                            cachedMostRecentSensorReadings[idCopy] = weatherApp.GetLastSensorReading(idCopy);
                             isFetching = false;
+                            refreshPlot = true;
                             }).detach();
                     }
 
                     ImGui::SameLine();
                     if (ImGui::Checkbox(format("Pokaż na wykresie##{}", sensor.id).c_str(), &cachedDisplaySensorOnPlot[sensor.id])) {
-                        cout << cachedDisplaySensorOnPlot[sensor.id] << " | " << sensor.id << endl;
+                        refreshPlot = true;
                     }
                     
                     ImGui::Spacing();
@@ -267,7 +292,37 @@ int main()
 
                 ImGui::Text("Wybrany zakres dotyczy przedziału czasowego, z którego pobrane zostaną dane po naciśnięciu przycisku \"Pobierz dane\" oraz informacji wyświetlanych na wykresie.");
                 if (DateRangeBackwardsSelector(&fromBack, &toBack, startDate, endDate)) {
+                    refreshPlot = true;
                 }
+
+                
+				if (refreshPlot) {
+                    cout << "refreshPlot" << endl;
+					for (const auto& sensor : selectedStation.sensors) {
+						if (cachedDisplaySensorOnPlot[sensor.id]) {
+                            cout << sensor.id << endl;
+							cachedSensorPlotPoints[sensor.id] = weatherApp.GetPlotPointsForSensorInTimeFrame(sensor.id, startDate, endDate);
+						}
+					}
+					refreshPlot = false;
+				}
+
+
+
+                ImPlot::BeginPlot("Wykres");
+                ImPlot::SetupAxisLimits(ImAxis_X1, WeatherApp::ParseTimestamp(startDate), WeatherApp::ParseTimestamp(endDate), ImGuiCond_Always);
+                //ImPlot::SetupAxisFormat(ImAxis_X1, DateTimeFormatter);
+
+                for (const auto& sensor : selectedStation.sensors) {
+                    if (cachedDisplaySensorOnPlot[sensor.id]) {
+                        SensorPlotContainer container = cachedSensorPlotPoints[sensor.id];
+                        if (container.xValues.size() > 0) {
+                            ImPlot::PlotStems(sensor.meteredValue.c_str(), container.xValues.data(), container.yValues.data(), container.xValues.size());
+                        }
+                    }
+                }
+
+                ImPlot::EndPlot();
 
                 ImGui::EndDisabled();
             }
@@ -306,6 +361,7 @@ int main()
     // Cleanup
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     CleanupDeviceD3D();

@@ -14,12 +14,32 @@
 #include <iostream>
 #include <shlobj.h>
 #include <filesystem>
+#include <cstring>
+#include <ctime>
+#include <stdexcept>
 
 
 using json = nlohmann::json;
 using namespace std;
 
 namespace WeatherApp {
+
+	inline double ParseTimestamp(const string& dateTime)
+	{
+		tm tm{};
+		tm.tm_isdst = -1;
+
+		istringstream ss(dateTime);
+		ss >> get_time(&tm, "%Y-%m-%d %H:%M");
+		if (ss.fail())
+			throw invalid_argument("Niepoprawny format daty: " + dateTime);
+
+		time_t t = mktime(&tm);
+		if (t == -1)
+			throw runtime_error("mktime() nie zdołał przeliczyć daty");
+
+		return static_cast<double>(t);
+	}
 
 	class App {
 	public:
@@ -28,11 +48,9 @@ namespace WeatherApp {
 		bool GetDataForSensorByDaysBack(const INT64& sensorId, json& out, const int& daysCount);
 		bool GetDataForSensorByTimeFrame(const INT64& sensorId, json& out, const string& dateFrom, const string& dateTo);
 
-		bool GetDataForStationByDaysBack(const INT64& stationId, json& out, const int& daysCount);
-		bool GetDataForStationByDaysBack(const string& stationCode, json& out, const int& daysCount);
-
 		vector<Station> GetCachedStations();
 		SensorReading GetLastSensorReading(INT64 sensorId);
+		SensorPlotContainer GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo);
 
 	private:
 		StationCache stationCache;

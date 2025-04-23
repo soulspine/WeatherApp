@@ -2,6 +2,8 @@
 
 #include "WeatherApp.h"
 
+
+
 using namespace WeatherApp;
 
 App::App() {
@@ -14,11 +16,11 @@ App::App() {
 	DWORD headerSum = 0, checkSum = 0;
 	DWORD returnVal = MapFileAndCheckSumW(fileName, &headerSum, &checkSum);
 	if ((returnVal != CHECKSUM_SUCCESS) or (checkSum != targetCheckSum)) {
-		std::wstring part1 = L"Program encountered an error opening ";
-		std::wstring part2 = L". Please make sure the file is in the same directory as the executable and it is the correct file.";
+		wstring part1 = L"Program encountered an error opening ";
+		wstring part2 = L". Please make sure the file is in the same directory as the executable and it is the correct file.";
 
-		// Convert the wchar_t[] array to std::wstring and concatenate
-		std::wstring errorMsg = part1 + wstring(fileName)  + part2;
+		// Convert the wchar_t[] array to wstring and concatenate
+		wstring errorMsg = part1 + wstring(fileName)  + part2;
 
 		_showErrorBox(errorMsg.c_str());
 		exit(1);
@@ -51,12 +53,12 @@ string App::_wcharToString(const wchar_t* wchar) {
 
 vector<string> App::_removeVectorDuplicates(const vector<string>& input) {
 	set<string> unique(input.begin(), input.end());
-	return vector<std::string>(unique.begin(), unique.end());
+	return vector<string>(unique.begin(), unique.end());
 }
 
 string App::_getJsonString(const json& obj, const string& key, const string& defaultValue) {
 	if (obj.contains(key) && obj[key].is_string()) {
-		return obj[key].get<std::string>();
+		return obj[key].get<string>();
 	}
 	return defaultValue;
 }
@@ -309,5 +311,33 @@ SensorReading App::GetLastSensorReading(INT64 sensorId) {
 		}
 	}
 
+	return out;
+}
+
+SensorPlotContainer App::GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo) {
+	SensorPlotContainer out;
+	filesystem::path sensorDataPath = appDataPath / "database" / to_string(sensorId);
+	if (filesystem::exists(sensorDataPath)) {
+		cout << stoll(dateFrom) << endl;
+		for (const auto& file : filesystem::directory_iterator(sensorDataPath)) {
+			if (file.is_regular_file() and file.path().extension() == ".json") {
+				string filename = file.path().filename().string();
+				double timestamp = stod(filename.substr(0, filename.find('.')));
+				if (timestamp >= ParseTimestamp(dateFrom) && timestamp <= ParseTimestamp(dateTo)) {
+					ifstream file(sensorDataPath / filename);
+					if (file.is_open()) {
+						json j;
+						file >> j;
+						out.xValues.push_back(j["timestamp"]);
+						out.yValues.push_back(j["value"]);
+						file.close();
+					}
+					else {
+						_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+					}
+				}
+			}
+		}
+	}
 	return out;
 }
