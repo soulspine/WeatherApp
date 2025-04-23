@@ -217,13 +217,16 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 					out.push_back(sr);
 					filesystem::path sensorDataPath = appDataPath / "database" / to_string(sensorId);
 					filesystem::create_directories(sensorDataPath);
-					ofstream file(sensorDataPath / (to_string(sr.timestamp) + ".json"));
-					if (file.is_open()) {
-						file << json(sr).dump(4, ' ');
-						file.close();
-					}
-					else {
-						_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+					filesystem::path readingPath = sensorDataPath / to_string(sr.timestamp) / ".json";
+					if (!filesystem::exists(readingPath)) {
+						ofstream file(sensorDataPath / (to_string(sr.timestamp) + ".json"));
+						if (file.is_open()) {
+							file << json(sr).dump(4, ' ');
+							file.close();
+						}
+						else {
+							_showErrorBox(ERRORMSG_FILE_OPEN_FAILED);
+						}
 					}
 				}
 			}

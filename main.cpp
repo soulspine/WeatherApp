@@ -17,6 +17,7 @@
 #include "src/WeatherApp.h"
 #include <chrono>
 #include <imgui_extension.h>
+#include "implot.h"
 
 const wchar_t CLASS_NAME[] = L"WeatherAppWindowClass";
 const wchar_t MAIN_WINDOW_TITLE[] = L"Weather App";
@@ -43,6 +44,7 @@ int fromBack = 3;
 int toBack = -1;
 std::string startDate, endDate;
 
+unordered_map<INT64, bool> cachedDisplaySensorOnPlot;
 unordered_map<INT64, SensorReading> cachedSensorReadings;
 
 // Main code
@@ -206,7 +208,9 @@ int main()
             if (!comboStations.empty()) {
 
 				ImGui::BeginDisabled(isFetching);
-                ImGui::Combo("Kody dostępnych stacji", &selectedComboStationIndex, comboStationEntries.data(), comboStationEntries.size());
+                if (ImGui::Combo("Kody dostępnych stacji", &selectedComboStationIndex, comboStationEntries.data(), comboStationEntries.size())) {
+                    cachedSensorReadings.clear();
+                }
 
                 Station selectedStation = comboStations[selectedComboStationIndex];
                 ImGui::Text("Wybrana stacja: %s (%d)", selectedStation.kodStacji.c_str(), selectedStation.id);
@@ -239,10 +243,10 @@ int main()
                     }
 
                     ImGui::Text(format("- {} - Ostatni odczyt: {}", sensor.meteredValue, lastReadingMessage).c_str());
-                    
+
                     ImGui::SameLine();
-                    if (ImGui::Button(format("Odśwież##{}", sensor.id).c_str())) {
-                        INT64 idCopy = sensor.id; // kopiujemy id na potrzeby wątku
+                    if (ImGui::Button(format("Pobierz dane##{}", sensor.id).c_str())) {
+                        INT64 idCopy = sensor.id;
                         isFetching = true;
                         thread([&, idCopy]() {
                             json sensorData;
@@ -252,10 +256,16 @@ int main()
                             isFetching = false;
                             }).detach();
                     }
+
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox(format("Pokaż na wykresie##{}", sensor.id).c_str(), &cachedDisplaySensorOnPlot[sensor.id])) {
+                        cout << cachedDisplaySensorOnPlot[sensor.id] << " | " << sensor.id << endl;
+                    }
                     
                     ImGui::Spacing();
                 }
 
+                ImGui::Text("Wybrany zakres dotyczy przedziału czasowego, z którego pobrane zostaną dane po naciśnięciu przycisku \"Pobierz dane\" oraz informacji wyświetlanych na wykresie.");
                 if (DateRangeBackwardsSelector(&fromBack, &toBack, startDate, endDate)) {
                 }
 
