@@ -196,14 +196,11 @@ bool App::_sensorIteratorHelper(const INT64& sensorId, json& out, const string e
 	for (int i = 0; i < pages; i++) {
 		rateLimitRetry:
 		auto response = _requestGet(format("{}&page={}&size=500", endpoint, i));
-		cout << response.text << endl;
 		if (response.status_code == 200) {
-			cout << json::accept(response.text) << endl;
 			json data = json::parse(response.text);
 			pages = data["totalPages"];
 			auto dataList = data["Lista archiwalnych wyników pomiarów"];
 			for (const auto& item : dataList) {
-				cout << item.dump(4, ' ') << endl << endl;
 				json date = item["Data"];
 				json value = item["Wartość"];
 				if (!date.is_null() && !value.is_null()) {
@@ -314,22 +311,22 @@ SensorReading App::GetLastSensorReading(INT64 sensorId) {
 	return out;
 }
 
-SensorPlotContainer App::GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo) {
-	SensorPlotContainer out;
+void App::GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo, vector<double>& outX, vector<double>& outY) {
+	outX.clear();
+	outY.clear();
 	filesystem::path sensorDataPath = appDataPath / "database" / to_string(sensorId);
 	if (filesystem::exists(sensorDataPath)) {
-		cout << stoll(dateFrom) << endl;
 		for (const auto& file : filesystem::directory_iterator(sensorDataPath)) {
 			if (file.is_regular_file() and file.path().extension() == ".json") {
 				string filename = file.path().filename().string();
 				double timestamp = stod(filename.substr(0, filename.find('.')));
-				if (timestamp >= ParseTimestamp(dateFrom) && timestamp <= ParseTimestamp(dateTo)) {
+				if (timestamp >= ParseTimestampYmdHHMM(dateFrom) && timestamp <= ParseTimestampYmdHHMM(dateTo)) {
 					ifstream file(sensorDataPath / filename);
 					if (file.is_open()) {
 						json j;
 						file >> j;
-						out.xValues.push_back(j["timestamp"]);
-						out.yValues.push_back(j["value"]);
+						outX.push_back(j["timestamp"]);
+						outY.push_back(j["value"]);
 						file.close();
 					}
 					else {
@@ -339,5 +336,4 @@ SensorPlotContainer App::GetPlotPointsForSensorInTimeFrame(const INT64& sensorId
 			}
 		}
 	}
-	return out;
 }

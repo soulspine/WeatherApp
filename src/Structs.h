@@ -57,9 +57,12 @@ struct SensorReading {
     double value;
 };
 
-struct SensorPlotContainer {
-    vector<double> xValues;
-    vector<double> yValues;
+struct SensorData {
+    string plotName;
+    bool displayOnPlot = false;
+	SensorReading lastReading;
+	vector<double> plotXValues;
+	vector<double> plotYValues;
 };
 
 // --- JSON serialization for Sensor ---

@@ -24,7 +24,17 @@ using namespace std;
 
 namespace WeatherApp {
 
-	inline double ParseTimestamp(const string& dateTime)
+	inline std::string FormatTimeHHMM(double unixSeconds) {
+		using namespace std::chrono;
+		std::time_t t = static_cast<std::time_t>(unixSeconds);
+		std::tm      tm_local;
+		localtime_s(&tm_local, &t);
+		char buf[6];
+		std::strftime(buf, sizeof(buf), "%H:%M", &tm_local);
+		return std::string(buf);
+	}
+
+	inline double ParseTimestampYmdHHMM(const string& dateTime)
 	{
 		tm tm{};
 		tm.tm_isdst = -1;
@@ -50,7 +60,7 @@ namespace WeatherApp {
 
 		vector<Station> GetCachedStations();
 		SensorReading GetLastSensorReading(INT64 sensorId);
-		SensorPlotContainer GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo);
+		void GetPlotPointsForSensorInTimeFrame(const INT64& sensorId, const string& dateFrom, const string& dateTo, vector<double>& outX, vector<double>& outY);
 
 	private:
 		StationCache stationCache;
