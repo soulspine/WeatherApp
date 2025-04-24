@@ -5,3 +5,5 @@ imgui.ini
 imgui_log.txt
 *.user
 packages/
+doxygen/output
+*.aps

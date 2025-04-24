@@ -12,37 +12,118 @@ using std::optional;
 using json = nlohmann::json;
 using INT64 = int64_t;
 
+/// <summary>
+/// Struktura opisująca sensor.
+/// </summary>
 struct Sensor {
+    /// <summary>
+    /// Id sensora.
+    /// </summary>
     INT64 id;
+    /// <summary>
+	/// Wzór chemiczny wartości mierzonej przez sensor.
+    /// </summary>
     string formula;
+    /// <summary>
+	/// Kod wartości mierzonej przez sensor.
+    /// </summary>
     string code;
+    /// <summary>
+	/// Mierzona wartość.
+    /// </summary>
     string meteredValue;
+    /// <summary>
+	/// Id mierzonej wartości.
+    /// </summary>
     INT64 meteredValueId;
 };
 
+/// <summary>
+/// Struktura opisująca stację.
+/// </summary>
 struct Station {
+    /// <summary>
+	/// Id stacji.
+    /// </summary>
     INT64 id;
+    /// <summary>
+	/// Kod stacji.
+    /// </summary>
     string kodStacji;
+    /// <summary>
+	/// Nazwa stacji.
+    /// </summary>
     string nazwa;
+    /// <summary>
+	/// Szerokość geograficzna WGS84.
+    /// </summary>
     string szerokoscWGS84;
+    /// <summary>
+	/// Długość geograficzna WGS84.
+    /// </summary>
     string dlugoscWGS84;
+    /// <summary>
+	/// Gmina, w której znajduje się stacja.
+    /// </summary>
     string gmina;
+    /// <summary>
+	/// Id miasta, w którym znajduje się stacja.
+    /// </summary>
     INT64 idMiasta;
+    /// <summary>
+	/// Nazwa miasta, w którym znajduje się stacja.
+    /// </summary>
     string nazwaMiasta;
+    /// <summary>
+	/// Powiat, w którym znajduje się stacja.
+    /// </summary>
     string powiat;
+    /// <summary>
+	/// Ulica, na której znajduje się stacja.
+    /// </summary>
     string ulica;
+    /// <summary>
+	/// Województwo, w którym znajduje się stacja.
+    /// </summary>
     string wojewodztwo;
+    /// <summary>
+	/// Wektor sensorów przypisanych do stacji.
+    /// </summary>
     vector<Sensor> sensors;
+	/// <summary>
+	/// String dostosowany do wyświetlania w wyborze stacji w GUI.
+	/// </summary>
 	string comboLabel;
 };
 
+/// <summary>
+/// Struktura opisująca cache stacji.
+/// </summary>
 struct StationCache {
+    /// <summary>
+	/// Słownik stacji, gdzie kluczem jest kod stacji, a wartością jest obiekt Station.
+    /// </summary>
     unordered_map<string, Station> stations;
+    /// <summary>
+	/// Wektor nazw miast.
+    /// </summary>
     vector<string> miasta;
+    /// <summary>
+	/// Wektor nazw województw.
+    /// </summary>
     vector<string> wojewodztwa;
+    /// <summary>
+	/// Wektor nazw gmin.
+    /// </summary>
     vector<string> gminy;
+    /// <summary>
+	/// Wektor nazw powiatów.
+    /// </summary>
     vector<string> powiaty;
 
+    /// <summary>
+	/// Czyści cache stacji.
+    /// </summary>
     void clear() {
         stations.clear();
         miasta.clear();
@@ -52,16 +133,43 @@ struct StationCache {
     }
 };
 
+/// <summary>
+/// Struktura opisująca odczyt sensora.
+/// </summary>
 struct SensorReading {
-    INT64 timestamp; // UNIX timestamp (UTC)
+    /// <summary>
+	/// Timestamp odczytu w formacie UNIX (UTC).
+    /// </summary>
+    INT64 timestamp;
+    /// <summary>
+	/// Wartość odczytu sensora.
+    /// </summary>
     double value;
 };
 
-struct SensorData {
+/// <summary>
+/// Dane sensora do wyświetlenia na wykresie.
+/// </summary>
+struct SensorPlotData {
+    /// <summary>
+	/// Nazwa sensora na wykresie.
+    /// </summary>
     string plotName;
+    /// <summary>
+	/// Czy sensor ma być wyświetlany na wykresie.
+    /// </summary>
     bool displayOnPlot = false;
+	/// <summary>
+	/// Ostatni odczyt sensora.
+	/// </summary>
 	SensorReading lastReading;
+	/// <summary>
+	/// Punkty X do wyświetlenia na wykresie.
+	/// </summary>
 	vector<double> plotXValues;
+	/// <summary>
+	/// Punkty Y do wyświetlenia na wykresie.
+	/// </summary>
 	vector<double> plotYValues;
 };
 

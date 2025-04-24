@@ -47,29 +47,17 @@ int toBack = -1;
 std::string startDate, endDate;
 bool firstIter = true;
 
-unordered_map<INT64, SensorData> cachedSensorData;
+unordered_map<INT64, SensorPlotData> cachedSensorPlotData;
 
 bool refreshPlot = true;
 int maxPlotYAxis;
 
-int DateTimeFormatter(double value, char* buff, int size, void* /*data*/) {
-    // Konwertuj timestamp do czasu
-    std::time_t t = static_cast<std::time_t>(value);
-    std::tm tm;
-    localtime_s(&tm, &t);  // wątko‑bezpieczna wersja localtime
-
-    // Jeśli godzina to 00:00, wyświetl tylko datę (dzień.miesiąc.rok)
-    if (tm.tm_hour == 0 && tm.tm_min == 0) {
-        return std::strftime(buff, size, "%d.%m.%Y", &tm);
-    }
-    // W przeciwnym razie, wyświetl godzinę i minutę (godzina:minuta)
-    return std::strftime(buff, size, "%H:%M", &tm);
-}
-
 // Main code
 //int APIENTRY WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE hInstPrev, _In_ PSTR cmdline, _In_ int cmdshow)
-int main()
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    
+
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     WeatherApp::App weatherApp;
@@ -162,6 +150,10 @@ int main()
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    HICON hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(101));
+    SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+    SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+
     // Main loop
     bool done = false;
     while (!done)
@@ -237,13 +229,13 @@ int main()
                     refreshPlot = true;
 					for (const auto& sensor : selectedStation.sensors) {
                         cout << sensor.id << endl;
-						if (cachedSensorData.find(sensor.id) == cachedSensorData.end()) {
+						if (cachedSensorPlotData.find(sensor.id) == cachedSensorPlotData.end()) {
                             cout << "sensorFetch" << endl;
-                            SensorData newData;
+                            SensorPlotData newData;
 							newData.displayOnPlot = false;
 							newData.lastReading = weatherApp.GetLastSensorReading(sensor.id);
 							newData.plotName = format("{} ({})", sensor.meteredValue, selectedStation.comboLabel);
-							cachedSensorData.insert({ sensor.id, newData });
+							cachedSensorPlotData.insert({ sensor.id, newData });
 						}
 					}
                 }
@@ -258,7 +250,7 @@ int main()
                 // Lista sensorów
                 for (const auto& sensor : selectedStation.sensors) {
 
-					SensorReading lastCachedReading = cachedSensorData[sensor.id].lastReading;
+					SensorReading lastCachedReading = cachedSensorPlotData[sensor.id].lastReading;
 
                     string lastReadingMessage = "";
 
@@ -283,14 +275,14 @@ int main()
                             json sensorData;
                             cout << selectedComboStationIndex << endl;
                             weatherApp.GetDataForSensorByTimeFrame(idCopy, sensorData, startDate, endDate);
-                            cachedSensorData[idCopy].lastReading = weatherApp.GetLastSensorReading(idCopy);
+                            cachedSensorPlotData[idCopy].lastReading = weatherApp.GetLastSensorReading(idCopy);
                             isFetching = false;
                             refreshPlot = true;
                             }).detach();
                     }
 
                     ImGui::SameLine();
-                    if (ImGui::Checkbox(format("Pokaż na wykresie##{}", sensor.id).c_str(), &cachedSensorData[sensor.id].displayOnPlot)) {
+                    if (ImGui::Checkbox(format("Pokaż na wykresie##{}", sensor.id).c_str(), &cachedSensorPlotData[sensor.id].displayOnPlot)) {
                         refreshPlot = true;
                     }
                     
@@ -302,29 +294,27 @@ int main()
                     refreshPlot = true;
                 }
 
-                
+
 				if (refreshPlot) {
+                    ImPlot::SetNextAxisLimits(ImAxis_X1, WeatherApp::ParseTimestampYmdHHMM(startDate), WeatherApp::ParseTimestampYmdHHMM(endDate), ImGuiCond_Always);
                     maxPlotYAxis = 10;
-					for (const auto& [sensorId, sensorData]:cachedSensorData) {
+					for (const auto& [sensorId, sensorData]:cachedSensorPlotData) {
 						if (sensorData.displayOnPlot) {
-							weatherApp.GetPlotPointsForSensorInTimeFrame(sensorId, startDate, endDate, cachedSensorData[sensorId].plotXValues, cachedSensorData[sensorId].plotYValues);
+							weatherApp.GetPlotPointsForSensorInTimeFrame(sensorId, startDate, endDate, cachedSensorPlotData[sensorId].plotXValues, cachedSensorPlotData[sensorId].plotYValues);
                         }
                         else {
-                            cachedSensorData[sensorId].plotXValues.clear();
-                            cachedSensorData[sensorId].plotYValues.clear();
+                            cachedSensorPlotData[sensorId].plotXValues.clear();
+                            cachedSensorPlotData[sensorId].plotYValues.clear();
                         }
 					}
 					refreshPlot = false;
 				}
 
-
-
                 ImPlot::BeginPlot("Wykres");
-                ImPlot::SetupAxisLimits(ImAxis_X1, WeatherApp::ParseTimestampYmdHHMM(startDate), WeatherApp::ParseTimestampYmdHHMM(endDate), ImGuiCond_Once);
 
                 ImPlot::SetupAxis(ImAxis_Y1, "μg/m³", ImPlotAxisFlags_LockMin);
                 ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Time);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, maxPlotYAxis*1.5, ImGuiCond_Once);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, maxPlotYAxis * 1.5, ImGuiCond_Once);
 
                 const float MAX_DIST_PX = 6.0f;
                 float       best_dist2 = MAX_DIST_PX * MAX_DIST_PX;
@@ -333,8 +323,9 @@ int main()
                 const char* best_name = nullptr;
                 ImVec4      best_color = ImVec4();
 
+                std::unordered_map<std::string, ImVec4> averageLabelColors; // <--- kolory dla podpisów
 
-                for (const auto& [sensorId, sensorData] : cachedSensorData) {
+                for (const auto& [sensorId, sensorData] : cachedSensorPlotData) {
                     if (!sensorData.displayOnPlot || sensorData.plotXValues.empty())
                         continue;
 
@@ -344,9 +335,9 @@ int main()
                         sensorData.plotYValues.data(),
                         sensorData.plotXValues.size());
 
-
+                    // zapisz dokładny kolor użyty do tej serii
                     ImVec4 series_color = ImPlot::GetLastItemColor();
-
+                    averageLabelColors[sensorData.plotName] = series_color;
 
                     const auto& xs = sensorData.plotXValues;
                     const auto& ys = sensorData.plotYValues;
@@ -377,6 +368,22 @@ int main()
                 }
 
                 ImPlot::EndPlot();
+
+                ImGui::BeginGroup();
+                ImGui::Text("Średnie wartości:");
+                for (const auto& [sensorId, sensorData] : cachedSensorPlotData) {
+                    if (!sensorData.displayOnPlot || sensorData.plotYValues.empty())
+                        continue;
+
+                    double sum = std::accumulate(sensorData.plotYValues.begin(), sensorData.plotYValues.end(), 0.0);
+                    double avg = sum / sensorData.plotYValues.size();
+
+                    const auto& color = averageLabelColors[sensorData.plotName];
+
+                    ImGui::TextColored(color, "%s: %.2f µg/m³", sensorData.plotName.c_str(), avg);
+                }
+                ImGui::EndGroup();
+
 
                 ImGui::EndDisabled();
             }

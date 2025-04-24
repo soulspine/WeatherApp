@@ -5,6 +5,11 @@
 #include <iomanip>
 #include <algorithm>
 
+/// <summary>
+/// Formatuje datę do stringa w formacie YYYY-mm-DD 00:00.
+/// </summary>
+/// <param name="t">obiekt tm zawierający wczytany odpowiedni czas</param>
+/// <returns>odpowiednio zformatowany string</returns>
 string FormatDate(const tm& t) {
     ostringstream oss;
     oss << setw(4) << setfill('0') << (t.tm_year + 1900) << "-"
@@ -14,6 +19,14 @@ string FormatDate(const tm& t) {
     return oss.str();
 }
 
+/// <summary>
+/// Element GUI wybierający zakres dat wstecz.
+/// </summary>
+/// <param name="fromDaysBack">zmienna przechowująca wartość pierwszego slidera</param>
+/// <param name="toDaysBack">zmienna przechowująca wartość drugiego slidera</param>
+/// <param name="startOut">string przechowujący zformatowany tekst z datą ustawioną na pierwszym sliderze</param>
+/// <param name="endOut">string przechowujący zformatowany tekst z datą ustawioną na drugim sliderze</param>
+/// <returns>bool określający czy użytkownik wszedł w interakcję z elementem w tej klatce</returns>
 bool DateRangeBackwardsSelector(int* fromDaysBack, int* toDaysBack, string& startOut, string& endOut) {
     bool changed = false;
 
