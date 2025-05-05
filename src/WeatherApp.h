@@ -23,6 +23,51 @@ using json = nlohmann::json;
 using namespace std;
 
 namespace WeatherApp {
+	static int testsPassed = 0;
+	static int testsFailed = 0;
+
+	inline bool TestCompare(const auto& a, const auto& b, const string& name, const bool& print = true) {
+		bool returnVal;
+		if (a == b) {
+			testsPassed++;
+			returnVal = true;
+		}
+		else {
+			testsFailed++;
+			returnVal = false;
+		}
+
+		if (print) {
+			cout << "Test \"" << name << "\": " << (returnVal ? "Passed" : "Failed") << endl;
+		}
+
+		return returnVal;
+	}
+
+	/// <summary>
+	/// Usuwa duplikaty z vectora stringów.
+	/// </summary>
+	/// <param name="input">vector stringów</param>
+	/// <returns>nowy vector bez powtórzeń</returns>
+	inline vector<string> RemoveVectorDuplicates(const vector<string>& input) {
+		set<string> unique(input.begin(), input.end());
+		return vector<string>(unique.begin(), unique.end());
+	}
+
+	/// <summary>
+	/// Wrapper do odczytywania wartości stringów z obiektów json. Jeśli nie mają wartości, zwraca defaultValue.
+	/// </summary>
+	/// <param name="obj">obiekt, z którego chcemy odczytać wartość</param>
+	/// <param name="key">klucz wartości</param>
+	/// <param name="defaultValue">domyślna wartość, która zostanie zwrócona w przypadku NULLa</param>
+	/// <returns>string z wartością odczytaną lub defaultValue</returns>
+	inline string GetSafeJsonString(const json& obj, const string& key, const string& defaultValue = "") {
+		if (obj.contains(key) && obj[key].is_string()) {
+			return obj[key].get<string>();
+		}
+		return defaultValue;
+	}
+
 
 	/// <summary>
 	/// Tworzy string przedstawiający czas w formacie HH:MM z podanego timestampu.
@@ -144,22 +189,6 @@ namespace WeatherApp {
 		/// <returns>string z tym samym tekstem ale w innym formacie</returns>
 		string _wcharToString(const wchar_t* wchar);
 
-		/// <summary>
-		/// Usuwa duplikaty z vectora stringów.
-		/// </summary>
-		/// <param name="input">vector stringów</param>
-		/// <returns>nowy vector bez powtórzeń</returns>
-		vector<string> _removeVectorDuplicates(const vector<string>& input);
-
-		/// <summary>
-		/// Wrapper do odczytywania wartości stringów z obiektów json. Jeśli nie mają wartości, zwraca defaultValue.
-		/// </summary>
-		/// <param name="obj">obiekt, z którego chcemy odczytać wartość</param>
-		/// <param name="key">klucz wartości</param>
-		/// <param name="defaultValue">domyślna wartość, która zostanie zwrócona w przypadku NULLa</param>
-		/// <returns>string z wartością odczytaną lub defaultValue</returns>
-		string _getJsonString(const json& obj, const string& key, const string& defaultValue = "");
-		
 		/// <summary>
 		/// Pokazuje errorBox z podanym komunikatem.
 		/// </summary>

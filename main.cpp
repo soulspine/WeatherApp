@@ -8,7 +8,6 @@
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
 
-
 #include "vendor/imgui/imgui.h"
 #include "vendor/imgui/imgui_impl_dx9.h"
 #include "vendor/imgui/imgui_impl_win32.h"
@@ -20,6 +19,7 @@
 #include "implot.h"
 #include <ctime>
 #include <cstdio>
+#include <vector>
 
 const wchar_t CLASS_NAME[] = L"WeatherAppWindowClass";
 const wchar_t MAIN_WINDOW_TITLE[] = L"Weather App";
@@ -56,10 +56,55 @@ int maxPlotYAxis;
 //int APIENTRY WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE hInstPrev, _In_ PSTR cmdline, _In_ int cmdshow)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    
 
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
+
+    std::string cmdLine(lpCmdLine);
+    if (cmdLine.find("--test") != string::npos) {
+        AllocConsole();
+        FILE* fpStdout = stdout;
+        FILE* fpStderr = stderr;
+        FILE* fpStdin = stdin;
+
+        freopen_s(&fpStdout, "CONOUT$", "w", stdout);
+        freopen_s(&fpStderr, "CONOUT$", "w", stderr);
+        freopen_s(&fpStdin, "CONIN$", "r", stdin);
+
+        using namespace WeatherApp;
+
+        TestCompare(1 + 1, 2, "1+1");
+
+        TestCompare(FormatTimeHHMM(0), "01:00", "Timestamp -> HH:MM (1)");
+		TestCompare(FormatTimeHHMM(1746422465), "07:21", "Timestamp -> HH:MM (2)");
+
+        json testJ = {
+			{"key1", "value1"}
+        };
+
+        TestCompare(GetSafeJsonString(testJ, "key1"), "value1", "Safe JSON string (valid key)");
+        TestCompare(GetSafeJsonString(testJ, "key2"), "", "Safe JSON string (invalid key)");
+        TestCompare(GetSafeJsonString(testJ, "key3", "invalid!"), "invalid!", "Safe JSON string (invalid custom key)");
+
+        TestCompare(ParseTimestampYmdHHMM("1970-01-01 01:00"), 0, "Timestamp parse (1970-01-01 01:00)");
+        TestCompare(ParseTimestampYmdHHMM("2025-05-05 08:12"), 1746425520, "Timestamp parse (2025-05-05 08:12)");
+
+		vector<string> withDuplicates = { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" };
+		vector<string> withoutDuplicates = { "1", "2", "3", "4", "5" };
+        TestCompare(RemoveVectorDuplicates(withDuplicates), withoutDuplicates, "Remove duplicates from vector (input with duplicates)");
+        TestCompare(RemoveVectorDuplicates(withoutDuplicates), withoutDuplicates, "Remove duplicates from vector (input without duplicates)");
+
+
+		cout << "\nTests completed. Result: " << testsPassed << " / " << (testsPassed + testsFailed);
+
+        cout << "\n\n[Press anything to close this window]";
+        cin.get();
+
+        FreeConsole();
+        return  0;
+    }
+
+    
     WeatherApp::App weatherApp;
     comboStations = weatherApp.GetCachedStations();
 
@@ -265,7 +310,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 						lastReadingMessage = "Brak";
                     }
 
-                    ImGui::Text(format("- {} - Ostatni odczyt: {}", sensor.meteredValue, lastReadingMessage).c_str());
+                    ImGui::Text(format("- {} - Ostatni pobrany odczyt: {}", sensor.meteredValue, lastReadingMessage).c_str());
 
                     ImGui::SameLine();
                     if (ImGui::Button(format("Pobierz dane##{}", sensor.id).c_str())) {

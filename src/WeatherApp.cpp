@@ -51,18 +51,6 @@ string App::_wcharToString(const wchar_t* wchar) {
 	return str;
 }
 
-vector<string> App::_removeVectorDuplicates(const vector<string>& input) {
-	set<string> unique(input.begin(), input.end());
-	return vector<string>(unique.begin(), unique.end());
-}
-
-string App::_getJsonString(const json& obj, const string& key, const string& defaultValue) {
-	if (obj.contains(key) && obj[key].is_string()) {
-		return obj[key].get<string>();
-	}
-	return defaultValue;
-}
-
 void App::loadSavedStationData() {
 	filesystem::path stationDataPath = appDataPath / "stationData.json";
 	if (filesystem::exists(stationDataPath)) {
@@ -114,16 +102,16 @@ void App::fetchStationDataAndSaveIt() {
 			for (const auto& station : stationsList) {
 				Station s;
 				s.id = station["Identyfikator stacji"];
-				s.kodStacji = _getJsonString(station, "Kod stacji");
-				s.nazwa = _getJsonString(station, "Nazwa stacji");
+				s.kodStacji = GetSafeJsonString(station, "Kod stacji");
+				s.nazwa = GetSafeJsonString(station, "Nazwa stacji");
 				s.idMiasta = station["Identyfikator miasta"];
-				s.nazwaMiasta = _getJsonString(station, "Nazwa miasta");
-				s.gmina = _getJsonString(station, "Gmina");
-				s.powiat = _getJsonString(station, "Powiat");
-				s.wojewodztwo = _getJsonString(station, "Województwo");
-				s.ulica = _getJsonString(station, "Ulica");
-				s.szerokoscWGS84 = _getJsonString(station, "WGS84 φ N");
-				s.dlugoscWGS84 = _getJsonString(station, "WGS84 λ E");
+				s.nazwaMiasta = GetSafeJsonString(station, "Nazwa miasta");
+				s.gmina = GetSafeJsonString(station, "Gmina");
+				s.powiat = GetSafeJsonString(station, "Powiat");
+				s.wojewodztwo = GetSafeJsonString(station, "Województwo");
+				s.ulica = GetSafeJsonString(station, "Ulica");
+				s.szerokoscWGS84 = GetSafeJsonString(station, "WGS84 φ N");
+				s.dlugoscWGS84 = GetSafeJsonString(station, "WGS84 λ E");
 				s.comboLabel = format("{} {}", s.nazwaMiasta, s.ulica);
 
 				int sensorsPages = INT_MAX;
@@ -136,9 +124,9 @@ void App::fetchStationDataAndSaveIt() {
 					for (const auto& sensor : sensorsList) {
 						Sensor sn;
 						sn.id = sensor["Identyfikator stanowiska"];
-						sn.formula = _getJsonString(sensor, "Wskaźnik - wzór");
-						sn.code = _getJsonString(sensor, "Wskaźnik - kod");
-						sn.meteredValue = _getJsonString(sensor, "Wskaźnik");
+						sn.formula = GetSafeJsonString(sensor, "Wskaźnik - wzór");
+						sn.code = GetSafeJsonString(sensor, "Wskaźnik - kod");
+						sn.meteredValue = GetSafeJsonString(sensor, "Wskaźnik");
 						sn.meteredValueId = sensor["Id wskaźnika"];
 						s.sensors.push_back(sn);
 					}
@@ -158,10 +146,10 @@ void App::fetchStationDataAndSaveIt() {
 		};
 	}
 
-	stationCache.miasta = _removeVectorDuplicates(stationCache.miasta);
-	stationCache.wojewodztwa = _removeVectorDuplicates(stationCache.wojewodztwa);
-	stationCache.gminy = _removeVectorDuplicates(stationCache.gminy);
-	stationCache.powiaty = _removeVectorDuplicates(stationCache.powiaty);
+	stationCache.miasta = RemoveVectorDuplicates(stationCache.miasta);
+	stationCache.wojewodztwa = RemoveVectorDuplicates(stationCache.wojewodztwa);
+	stationCache.gminy = RemoveVectorDuplicates(stationCache.gminy);
+	stationCache.powiaty = RemoveVectorDuplicates(stationCache.powiaty);
 
 	//SAVE TO FILE
 	filesystem::path stationDataPath = appDataPath / "stationData.json";
